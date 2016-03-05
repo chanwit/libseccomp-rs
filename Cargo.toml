@@ -1,0 +1,13 @@
+[package]
+name = "seccomp"
+version = "0.1.0"
+authors = ["Chanwit Kaewkasi <chanwit@gmail.com>"]
+build = "build.rs"
+links = "seccomp"
+
+[build-dependencies]
+gcc = "*"
+
+[dependencies]
+libc = "*"
+

@@ -1,0 +1,54 @@
+use libc;
+
+#[link(name="seccomp_internal", kind="static")]
+extern "C" {
+    pub static C_ARCH_NATIVE: libc::uint32_t;
+    pub static C_ARCH_X86: libc::uint32_t;
+    pub static C_ARCH_X86_64: libc::uint32_t;
+    pub static C_ARCH_X32: libc::uint32_t;
+    pub static C_ARCH_ARM: libc::uint32_t;
+    pub static C_ARCH_AARCH64: libc::uint32_t;
+    pub static C_ARCH_MIPS: libc::uint32_t;
+    pub static C_ARCH_MIPS64: libc::uint32_t;
+    pub static C_ARCH_MIPS64: libc::uint32_t;
+    pub static C_ARCH_MIPS64N32: libc::uint32_t;
+    pub static C_ARCH_MIPSEL: libc::uint32_t;
+    pub static C_ARCH_MIPSEL64: libc::uint32_t;
+    pub static C_ARCH_MIPSEL64N32: libc::uint32_t;
+
+    pub static C_ACT_KILL: libc::uint32_t;
+    pub static C_ACT_TRAP: libc::uint32_t;
+    pub static C_ACT_ERRNO: libc::uint32_t;
+    pub static C_ACT_TRACE: libc::uint32_t;
+    pub static C_ACT_ALLOW: libc::uint32_t;
+
+    pub static C_ATTRIBUTE_DEFAULT: libc::uint32_t;
+    pub static C_ATTRIBUTE_BADARCH: libc::uint32_t;
+    pub static C_ATTRIBUTE_NNP: libc::uint32_t;
+    pub static C_ATTRIBUTE_TSYNC: libc::uint32_t;
+
+    pub static C_CMP_NE: libc::int;
+    pub static C_CMP_LT: libc::int;
+    pub static C_CMP_LE: libc::int;
+    pub static C_CMP_EQ: libc::int;
+    pub static C_CMP_GE: libc::int;
+    pub static C_CMP_GT: libc::int;
+    pub static C_CMP_MASKED_EQ: libc::int;
+
+    pub static C_VERSION_MAJOR: libc::int;
+    pub static C_VERSION_MINOR: libc::int;
+    pub static C_VERSION_MICRO: libc::int;
+}
+
+pub enum scmpFilterAttr {
+	filterAttrActDefault,
+	filterAttrActBadArch,
+	filterAttrNNP,
+	filterAttrTsync,
+}
+
+fn checkVersionAbove(major: i32, minor: i32, micro: i32) -> bool {
+	(verMajor > major) ||
+        (verMajor == major && verMinor > minor) ||
+        (verMajor == major && verMinor == minor && verMicro > micro)
+}
