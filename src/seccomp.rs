@@ -1,6 +1,5 @@
 use libc;
 
-#[link(name="seccomp_internal", kind="static")]
 extern "C" {
     pub static C_ARCH_NATIVE: libc::uint32_t;
     pub static C_ARCH_X86: libc::uint32_t;
@@ -39,20 +38,55 @@ extern "C" {
     pub static C_VERSION_MICRO: libc::c_int;
 }
 
-pub enum scmpFilterAttr {
-    filterAttrActDefault,
-    filterAttrActBadArch,
-    filterAttrNNP,
-    filterAttrTsync,
+pub enum ScmpFilterAttr {
+    FilterAttrActDefault,
+    FilterAttrActBadArch,
+    FilterAttrNNP,
+    FilterAttrTsync,
 }
 
-/*
-verMajor: i32 = C_VERSION_MAJOR;
-verMinor: i32 = C_VERSION_MINOR;
-verMicro: i32 = C_VERSION_MICRO;
-*/
-
-fn checkVersionAbove(major: i32, minor: i32, micro: i32) -> bool {
+pub fn check_version_above(major: i32, minor: i32, micro: i32) -> bool {
     (C_VERSION_MAJOR > major) || (C_VERSION_MAJOR == major && C_VERSION_MINOR > minor) ||
     (C_VERSION_MAJOR == major && C_VERSION_MINOR == minor && C_VERSION_MICRO > micro)
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct ScmpAction(u32);
+
+pub const ACT_INVALID: ScmpAction = ScmpAction(0);
+pub const ACT_KILL: ScmpAction = ScmpAction(1);
+pub const ACT_TRAP: ScmpAction = ScmpAction(2);
+pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
+pub const ACT_TRACE: ScmpAction = ScmpAction(4);
+pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
+
+impl ScmpAction {
+    pub fn set_return_code(&self, code: i16) -> ScmpAction {
+        let a_tmp = self.0 & 0x0000FFFF;
+        if a_tmp == ACT_ERRNO.0 || a_tmp == ACT_TRACE.0 {
+            return ScmpAction(a_tmp | (code as u32 & 0xFFFF) << 16);
+        }
+        return ScmpAction(self.0);
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn test_check_version_above_a_certain_one() {
+        assert_eq!(true, check_version_above(1, 2, 0));
+        assert_eq!(false, check_version_above(2, 1, 0));
+        assert_eq!(2, C_VERSION_MAJOR);
+        assert_eq!(1, C_VERSION_MINOR);
+        assert_eq!(0, C_VERSION_MICRO);
+    }
+
+    #[test]
+    fn test_action_set_return_code() {
+        assert_eq!(ACT_INVALID, ACT_INVALID.set_return_code(0x0010))
+    }
 }
