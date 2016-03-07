@@ -61,8 +61,8 @@ pub fn check_version_above(major: i32, minor: i32, micro: i32) -> bool {
     (C_VERSION_MAJOR == major && C_VERSION_MINOR == minor && C_VERSION_MICRO > micro)
 }
 
-#[derive(Copy, Clone)]
-pub struct ScmpArch(u32);
+// #[derive(Copy, Clone)]
+// pub struct ScmpArch(u32);
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct ScmpAction(u32);
@@ -76,6 +76,23 @@ pub const ACT_TRAP: ScmpAction = ScmpAction(2);
 pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
 pub const ACT_TRACE: ScmpAction = ScmpAction(4);
 pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ScmpArch {
+    ArchInvalid,
+    ArchNative,
+    ArchX86,
+    ArchAMD64,
+    ArchX32,
+    ArchARM,
+    ArchARM64,
+    ArchMIPS,
+    ArchMIPS64,
+    ArchMIPS64N32,
+    ArchMIPSEL,
+    ArchMIPSEL64,
+    ArchMIPSEL64N32,
+}
 
 impl ScmpAction {
     pub fn set_return_code(&self, code: i16) -> ScmpAction {
@@ -92,14 +109,14 @@ impl ScmpAction {
 }
 
 fn sanitize_arch(in_arch: ScmpArch) -> Option<()> {
-    let arch_start: ScmpArch = ScmpArch(C_ARCH_NATIVE);
-    let arch_end: ScmpArch = ScmpArch(C_ARCH_MIPSEL64N32);
+    let arch_start = ScmpArch::ArchNative.to_native();
+    let arch_end = ScmpArch::ArchMIPSEL64N32.to_native();
 
-    if in_arch.0 < arch_start.0 || in_arch.0 > arch_end.0 {
+    if in_arch.to_native() < arch_start || in_arch.to_native() > arch_end {
         return None;
     }
 
-    if in_arch.0 == C_ARCH_BAD {
+    if in_arch.to_native() == C_ARCH_BAD {
         return None;
     }
     return Some(());
@@ -107,22 +124,45 @@ fn sanitize_arch(in_arch: ScmpArch) -> Option<()> {
 
 impl ScmpSyscall {
     pub fn get_name(&self) -> Option<String> {
-        return self.get_name_by_arch(ScmpArch(C_ARCH_NATIVE));
+        return self.get_name_by_arch(ScmpArch::ArchNative);
     }
 
     pub fn get_name_by_arch(&self, arch: ScmpArch) -> Option<String> {
 
         if sanitize_arch(arch) == None {
-            return Some("".to_string());
+            return None;
         }
 
+
         let c_str: *const libc::c_char = unsafe {
-            seccomp_syscall_resolve_num_arch(arch.0, self.0 as libc::c_int)
+            seccomp_syscall_resolve_num_arch(arch.to_native(), self.0 as libc::c_int)
         };
+
         if c_str == ptr::null() {
             return None;
         }
+
         return Some(unsafe { CStr::from_ptr(c_str).to_string_lossy().into_owned() });
+    }
+}
+
+impl ScmpArch {
+    pub fn to_native(self) -> libc::uint32_t {
+        match self {
+            ScmpArch::ArchX86 => C_ARCH_X86,
+            ScmpArch::ArchAMD64 => C_ARCH_X86_64,
+            ScmpArch::ArchX32 => C_ARCH_X32,
+            ScmpArch::ArchARM => C_ARCH_ARM,
+            ScmpArch::ArchARM64 => C_ARCH_AARCH64,
+            ScmpArch::ArchMIPS => C_ARCH_MIPS,
+            ScmpArch::ArchMIPS64 => C_ARCH_MIPS64,
+            ScmpArch::ArchMIPS64N32 => C_ARCH_MIPS64N32,
+            ScmpArch::ArchMIPSEL => C_ARCH_MIPSEL,
+            ScmpArch::ArchMIPSEL64 => C_ARCH_MIPSEL64,
+            ScmpArch::ArchMIPSEL64N32 => C_ARCH_MIPSEL64N32,
+            ScmpArch::ArchNative => C_ARCH_NATIVE,
+            ScmpArch::ArchInvalid => C_ARCH_BAD,
+        }
     }
 }
 
@@ -160,6 +200,23 @@ mod test {
         assert!(name.unwrap().len() > 1);
 
         assert_eq!(None, call_fail.get_name())
+    }
+
+    #[test]
+    fn test_syscall_get_name_by_arch() {
+        let call_1 = ScmpSyscall(0x1);
+        let call_invalid = ScmpSyscall(0x999);
+
+        let arch_good = ScmpArch::ArchAMD64;
+        let arch_bad = ScmpArch::ArchInvalid;
+
+        let name = call_1.get_name_by_arch(arch_good);
+        assert!(name != None);
+        assert_eq!("write", name.unwrap());
+
+        assert_eq!(None, call_1.get_name_by_arch(arch_bad));
+        assert_eq!(None, call_invalid.get_name_by_arch(arch_good));
+        assert_eq!(None, call_invalid.get_name_by_arch(arch_bad));
     }
 
 }
