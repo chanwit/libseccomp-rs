@@ -40,7 +40,10 @@ extern "C" {
     pub static C_VERSION_MAJOR: libc::c_int;
     pub static C_VERSION_MINOR: libc::c_int;
     pub static C_VERSION_MICRO: libc::c_int;
+}
 
+#[link(name = "seccomp")]
+extern "C" {
     fn seccomp_syscall_resolve_num_arch(arch: libc::uint32_t,
                                         syscall: libc::c_int)
                                         -> *const libc::c_char;
@@ -73,9 +76,6 @@ pub const ACT_TRAP: ScmpAction = ScmpAction(2);
 pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
 pub const ACT_TRACE: ScmpAction = ScmpAction(4);
 pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
-
-// const arch_start: ScmpArch = ScmpArch(C_ARCH_NATIVE);
-// const arch_end: ScmpArch = ScmpArch(C_ARCH_MIPSEL64N32);
 
 impl ScmpAction {
     pub fn set_return_code(&self, code: i16) -> ScmpAction {
@@ -155,8 +155,11 @@ mod test {
         let call_1 = ScmpSyscall(0x1);
         let call_fail = ScmpSyscall(0x999);
 
-        let name = call_1.get_name().unwrap();
-        let _ = call_fail.get_name().unwrap();
+        let name = call_1.get_name();
+        assert!(name != None);
+        assert!(name.unwrap().len() > 1);
+
+        assert_eq!(None, call_fail.get_name())
     }
 
 }
