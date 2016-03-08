@@ -52,6 +52,7 @@ extern "C" {
     fn seccomp_syscall_resolve_name_arch(arch: libc::uint32_t,
                                          name: *const libc::c_char)
                                          -> libc::c_int;
+    fn seccomp_arch_native() -> libc::uint32_t;
 }
 
 pub enum ScmpFilterAttr {
@@ -246,6 +247,40 @@ pub fn make_condition(arg: u32,
     return Some(cond_struct);
 }
 
+pub fn get_native_arch() -> Option<ScmpArch> {
+    let arch = unsafe { seccomp_arch_native() };
+    return arch_from_native(arch);
+}
+
+fn arch_from_native(a: libc::uint32_t) -> Option<ScmpArch> {
+    if a == C_ARCH_X86 {
+        Some(ScmpArch::ArchX86)
+    } else if a == C_ARCH_X86_64 {
+        Some(ScmpArch::ArchAMD64)
+    } else if a == C_ARCH_X32 {
+        Some(ScmpArch::ArchX32)
+    } else if a == C_ARCH_ARM {
+        Some(ScmpArch::ArchARM)
+    } else if a == C_ARCH_NATIVE {
+        Some(ScmpArch::ArchNative)
+    } else if a == C_ARCH_AARCH64 {
+        Some(ScmpArch::ArchARM64)
+    } else if a == C_ARCH_MIPS {
+        Some(ScmpArch::ArchMIPS)
+    } else if a == C_ARCH_MIPS64 {
+        Some(ScmpArch::ArchMIPS64)
+    } else if a == C_ARCH_MIPS64N32 {
+        Some(ScmpArch::ArchMIPS64N32)
+    } else if a == C_ARCH_MIPSEL {
+        Some(ScmpArch::ArchMIPSEL)
+    } else if a == C_ARCH_MIPSEL64 {
+        Some(ScmpArch::ArchMIPSEL64)
+    } else if a == C_ARCH_MIPSEL64N32 {
+        Some(ScmpArch::ArchMIPSEL64N32)
+    } else {
+        None
+    }
+}
 
 #[cfg(test)]
 mod test {
@@ -358,6 +393,12 @@ mod test {
         // No argument should fail
         assert_eq!(None,
                    make_condition(3, ScmpCompareOp::CompareMaskedEqual, &[]));
+    }
+
+    #[test]
+    fn test_get_native_arch() {
+        let arch = get_native_arch();
+        assert!(arch != None);
     }
 
 }
