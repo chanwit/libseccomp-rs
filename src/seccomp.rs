@@ -72,6 +72,27 @@ pub struct ScmpAction(u32);
 #[derive(PartialEq, Eq, Debug)]
 pub struct ScmpSyscall(i32);
 
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ScmpCompareOp {
+    CompareInvalid,
+    CompareNotEqual,
+    CompareLess,
+    CompareLessOrEqual,
+    CompareEqual,
+    CompareGreaterEqual,
+    CompareGreater,
+    CompareMaskedEqual,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct ScmpCondition {
+    argument: u32,
+    operator: ScmpCompareOp,
+    operand_one: u64,
+    operand_two: u64,
+}
+
 pub const ACT_INVALID: ScmpAction = ScmpAction(0);
 pub const ACT_KILL: ScmpAction = ScmpAction(1);
 pub const ACT_TRAP: ScmpAction = ScmpAction(2);
@@ -196,6 +217,36 @@ pub fn get_syscall_from_name_by_arch(name: &str, arch: ScmpArch) -> Option<ScmpS
 }
 
 
+
+pub fn make_condition(arg: u32,
+                      comparison: ScmpCompareOp,
+                      values: &[u64])
+                      -> Option<ScmpCondition> {
+    if comparison == ScmpCompareOp::CompareInvalid {
+        return None;
+    } else if arg > 5 {
+        return None;
+    } else if values.len() > 2 {
+        return None;
+    } else if values.len() == 0 {
+        return None;
+    }
+
+    let cond_struct = ScmpCondition {
+        argument: arg,
+        operator: comparison,
+        operand_one: values[0],
+        operand_two: if values.len() == 2 {
+            values[1]
+        } else {
+            0
+        },
+    };
+
+    return Some(cond_struct);
+}
+
+
 #[cfg(test)]
 mod test {
 
@@ -275,6 +326,16 @@ mod test {
         assert_eq!(None, get_syscall_from_name_by_arch(name_1, arch_invalid));
         assert_eq!(None,
                    get_syscall_from_name_by_arch(name_invalid, arch_invalid));
+    }
+
+    #[test]
+    fn test_make_condition() {
+        let condition = make_condition(3, ScmpCompareOp::CompareNotEqual, &[0x10]);
+        assert!(condition != None);
+        assert_eq!(3, condition.unwrap().argument);
+        assert_eq!(0x10, condition.unwrap().operand_one);
+        assert_eq!(0, condition.unwrap().operand_two);
+        assert_eq!(ScmpCompareOp::CompareNotEqual, condition.unwrap().operator);
     }
 
 }
