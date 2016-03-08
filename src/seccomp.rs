@@ -1,5 +1,5 @@
 use libc;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 extern "C" {
@@ -47,6 +47,8 @@ extern "C" {
     fn seccomp_syscall_resolve_num_arch(arch: libc::uint32_t,
                                         syscall: libc::c_int)
                                         -> *const libc::c_char;
+
+    fn seccomp_syscall_resolve_name(name: *const libc::c_char) -> libc::c_int;
 }
 
 pub enum ScmpFilterAttr {
@@ -61,9 +63,6 @@ pub fn check_version_above(major: i32, minor: i32, micro: i32) -> bool {
     (C_VERSION_MAJOR == major && C_VERSION_MINOR == minor && C_VERSION_MICRO > micro)
 }
 
-// #[derive(Copy, Clone)]
-// pub struct ScmpArch(u32);
-
 #[derive(PartialEq, Eq, Debug)]
 pub struct ScmpAction(u32);
 
@@ -76,6 +75,8 @@ pub const ACT_TRAP: ScmpAction = ScmpAction(2);
 pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
 pub const ACT_TRACE: ScmpAction = ScmpAction(4);
 pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
+
+pub const SCMP_ERROR: libc::c_int = -1;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScmpArch {
@@ -119,6 +120,7 @@ fn sanitize_arch(in_arch: ScmpArch) -> Option<()> {
     if in_arch.to_native() == C_ARCH_BAD {
         return None;
     }
+
     return Some(());
 }
 
@@ -164,6 +166,15 @@ impl ScmpArch {
             ScmpArch::ArchInvalid => C_ARCH_BAD,
         }
     }
+}
+
+pub fn get_syscall_from_name(name: &str) -> Option<ScmpSyscall> {
+    let c_str = CString::new(name).unwrap();
+    let result: libc::c_int = unsafe { seccomp_syscall_resolve_name(c_str.as_ptr()) };
+    if result == SCMP_ERROR {
+        return None;
+    }
+    return Some(ScmpSyscall(result));
 }
 
 
@@ -217,6 +228,19 @@ mod test {
         assert_eq!(None, call_1.get_name_by_arch(arch_bad));
         assert_eq!(None, call_invalid.get_name_by_arch(arch_good));
         assert_eq!(None, call_invalid.get_name_by_arch(arch_bad));
+    }
+
+    #[test]
+    fn test_get_syscall_from_name() {
+        let name_1 = "write";
+        let name_invalid = "NOTASYSCALL";
+
+        // syscall write should be a valid number, hence not bing None
+        let syscall = get_syscall_from_name(name_1);
+        assert!(syscall != None);
+
+        // Getting an invalid syscall should be error
+        assert_eq!(None, get_syscall_from_name(name_invalid));
     }
 
 }
