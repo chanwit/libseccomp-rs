@@ -332,10 +332,32 @@ mod test {
     fn test_make_condition() {
         let condition = make_condition(3, ScmpCompareOp::CompareNotEqual, &[0x10]);
         assert!(condition != None);
-        assert_eq!(3, condition.unwrap().argument);
-        assert_eq!(0x10, condition.unwrap().operand_one);
-        assert_eq!(0, condition.unwrap().operand_two);
-        assert_eq!(ScmpCompareOp::CompareNotEqual, condition.unwrap().operator);
+        let c = condition.unwrap();
+        assert_eq!(3, c.argument);
+        assert_eq!(0x10, c.operand_one);
+        assert_eq!(0, c.operand_two);
+        assert_eq!(ScmpCompareOp::CompareNotEqual, c.operator);
+
+        let condition_2 = make_condition(3, ScmpCompareOp::CompareMaskedEqual, &[0x10, 0x20]);
+        assert!(condition_2 != None);
+        let c_2 = condition_2.unwrap();
+        assert_eq!(3, c_2.argument);
+        assert_eq!(0x10, c_2.operand_one);
+        assert_eq!(0x20, c_2.operand_two);
+        assert_eq!(ScmpCompareOp::CompareMaskedEqual, c_2.operator);
+
+        // Bad syscall number of arguments
+        assert_eq!(None,
+                   make_condition(7, ScmpCompareOp::CompareNotEqual, &[0x10]));
+        // Bad comparison operator
+        assert_eq!(None,
+                   make_condition(3, ScmpCompareOp::CompareInvalid, &[0x10]));
+        // More than 2 arguments should fail
+        assert_eq!(None,
+                   make_condition(3, ScmpCompareOp::CompareMaskedEqual, &[0x10, 0x20, 0x30]));
+        // No argument should fail
+        assert_eq!(None,
+                   make_condition(3, ScmpCompareOp::CompareMaskedEqual, &[]));
     }
 
 }
