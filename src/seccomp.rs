@@ -49,6 +49,9 @@ extern "C" {
                                         -> *const libc::c_char;
 
     fn seccomp_syscall_resolve_name(name: *const libc::c_char) -> libc::c_int;
+    fn seccomp_syscall_resolve_name_arch(arch: libc::uint32_t,
+                                         name: *const libc::c_char)
+                                         -> libc::c_int;
 }
 
 pub enum ScmpFilterAttr {
@@ -177,6 +180,21 @@ pub fn get_syscall_from_name(name: &str) -> Option<ScmpSyscall> {
     return Some(ScmpSyscall(result));
 }
 
+pub fn get_syscall_from_name_by_arch(name: &str, arch: ScmpArch) -> Option<ScmpSyscall> {
+    if sanitize_arch(arch) == None {
+        return None;
+    }
+
+    let c_str = CString::new(name).unwrap();
+    let result: libc::c_int = unsafe {
+        seccomp_syscall_resolve_name_arch(arch.to_native(), c_str.as_ptr())
+    };
+    if result == SCMP_ERROR {
+        return None;
+    }
+    return Some(ScmpSyscall(result));
+}
+
 
 #[cfg(test)]
 mod test {
@@ -241,6 +259,22 @@ mod test {
 
         // Getting an invalid syscall should be error
         assert_eq!(None, get_syscall_from_name(name_invalid));
+    }
+
+    #[test]
+    fn test_get_syscall_from_name_by_arch() {
+        let name_1 = "write";
+        let name_invalid = "NOTASYSCALL";
+        let arch_1 = ScmpArch::ArchAMD64;
+        let arch_invalid = ScmpArch::ArchInvalid;
+
+        let syscall = get_syscall_from_name_by_arch(name_1, arch_1);
+        assert!(syscall != None);
+
+        assert_eq!(None, get_syscall_from_name_by_arch(name_invalid, arch_1));
+        assert_eq!(None, get_syscall_from_name_by_arch(name_1, arch_invalid));
+        assert_eq!(None,
+                   get_syscall_from_name_by_arch(name_invalid, arch_invalid));
     }
 
 }
