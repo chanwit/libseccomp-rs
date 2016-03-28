@@ -43,7 +43,6 @@ extern "C" {
     pub static C_VERSION_MICRO: libc::c_int;
 }
 
-enum scmp_filter_ctx {}
 
 #[link(name = "seccomp")]
 extern "C" {
@@ -56,8 +55,17 @@ extern "C" {
                                          name: *const libc::c_char)
                                          -> libc::c_int;
     fn seccomp_arch_native() -> libc::uint32_t;
-    fn seccomp_init(def_action: libc::uint32_t) -> *mut scmp_filter_ctx;
-    fn seccomp_release(ctx: *mut scmp_filter_ctx);
+    fn seccomp_init(def_action: libc::uint32_t) -> *mut libc::c_void;
+    fn seccomp_release(ctx: *mut libc::c_void);
+}
+
+extern "C" {
+    fn prctl(option: libc::c_int,
+             arg2: libc::c_ulong,
+             arg3: libc::c_ulong,
+             arg4: libc::c_ulong,
+             arg5: libc::c_ulong)
+             -> libc::c_int;
 }
 
 pub enum ScmpFilterAttr {
@@ -77,7 +85,6 @@ pub struct ScmpAction(u32);
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct ScmpSyscall(i32);
-
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScmpCompareOp {
@@ -101,7 +108,7 @@ pub struct ScmpCondition {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ScmpFilter {
-    filter_ctx: *mut scmp_filter_ctx,
+    filter_ctx: *mut libc::c_void,
     valid: bool,
 }
 
@@ -145,6 +152,17 @@ impl ScmpAction {
 
     pub fn get_return_code(&self) -> i16 {
         return (self.0 >> 16) as i16;
+    }
+
+    pub fn to_native(&self) -> libc::uint32_t {
+        match ScmpAction(self.0 & 0xFFFF) {
+            ACT_KILL => C_ACT_KILL,
+            ACT_TRAP => C_ACT_TRAP,
+            ACT_ERRNO => C_ACT_ERRNO | self.0 >> 16,
+            ACT_TRACE => C_ACT_TRACE | self.0 >> 16,
+            ACT_ALLOW => C_ACT_ALLOW,
+            _ => 0x0,
+        }
     }
 }
 
@@ -315,7 +333,7 @@ pub fn new_filter(default_action: ScmpAction) -> Option<ScmpFilter> {
         return None;
     }
 
-    let f_ptr = unsafe { seccomp_init(default_action.0) };
+    let f_ptr = unsafe { seccomp_init(default_action.to_native()) };
 
     if f_ptr == ptr::null_mut() {
         return None;
@@ -337,7 +355,7 @@ impl ScmpFilter {
 
     pub fn release(&mut self) {
         let lock = Mutex::new(*self);
-        if self.valid {
+        if self.valid == false {
             return;
         }
 
@@ -474,6 +492,7 @@ mod test {
         assert!(None != filter);
 
         let mut f = filter.unwrap();
+
         // Filter must be valid
         assert_eq!(true, f.is_valid());
         f.release();
