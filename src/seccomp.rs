@@ -1,6 +1,7 @@
 use libc;
 use std::ffi::{CStr, CString};
 use std::ptr;
+use std::sync::Mutex;
 
 extern "C" {
     pub static C_ARCH_BAD: libc::uint32_t;
@@ -42,6 +43,8 @@ extern "C" {
     pub static C_VERSION_MICRO: libc::c_int;
 }
 
+enum scmp_filter_ctx {}
+
 #[link(name = "seccomp")]
 extern "C" {
     fn seccomp_syscall_resolve_num_arch(arch: libc::uint32_t,
@@ -53,6 +56,8 @@ extern "C" {
                                          name: *const libc::c_char)
                                          -> libc::c_int;
     fn seccomp_arch_native() -> libc::uint32_t;
+    fn seccomp_init(def_action: libc::uint32_t) -> *mut scmp_filter_ctx;
+    fn seccomp_release(ctx: *mut scmp_filter_ctx);
 }
 
 pub enum ScmpFilterAttr {
@@ -67,7 +72,7 @@ pub fn check_version_above(major: i32, minor: i32, micro: i32) -> bool {
     (C_VERSION_MAJOR == major && C_VERSION_MINOR == minor && C_VERSION_MICRO > micro)
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ScmpAction(u32);
 
 #[derive(PartialEq, Eq, Debug)]
@@ -94,12 +99,21 @@ pub struct ScmpCondition {
     operand_two: u64,
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct ScmpFilter {
+    filter_ctx: *mut scmp_filter_ctx,
+    valid: bool,
+}
+
 pub const ACT_INVALID: ScmpAction = ScmpAction(0);
 pub const ACT_KILL: ScmpAction = ScmpAction(1);
 pub const ACT_TRAP: ScmpAction = ScmpAction(2);
 pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
 pub const ACT_TRACE: ScmpAction = ScmpAction(4);
 pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
+
+const ActionStart: ScmpAction = ACT_KILL;
+const ActionEnd: ScmpAction = ACT_ALLOW;
 
 pub const SCMP_ERROR: libc::c_int = -1;
 
@@ -149,6 +163,20 @@ fn sanitize_arch(in_arch: ScmpArch) -> Option<()> {
     return Some(());
 }
 
+fn sanitize_action(in_act: ScmpAction) -> Option<()> {
+    let in_tmp = in_act.0 & 0x0000FFFF;
+
+    if in_tmp < ActionStart.0 || in_tmp > ActionEnd.0 {
+        return None;
+    }
+
+    if in_tmp != ACT_TRACE.0 && in_tmp != ACT_ERRNO.0 && (in_tmp & 0xFFFF0000) != 0 {
+        return None;
+    }
+
+    return Some(());
+}
+
 impl ScmpSyscall {
     pub fn get_name(&self) -> Option<String> {
         return self.get_name_by_arch(ScmpArch::ArchNative);
@@ -159,7 +187,6 @@ impl ScmpSyscall {
         if sanitize_arch(arch) == None {
             return None;
         }
-
 
         let c_str: *const libc::c_char = unsafe {
             seccomp_syscall_resolve_num_arch(arch.to_native(), self.0 as libc::c_int)
@@ -203,6 +230,7 @@ pub fn get_syscall_from_name(name: &str) -> Option<ScmpSyscall> {
 }
 
 pub fn get_syscall_from_name_by_arch(name: &str, arch: ScmpArch) -> Option<ScmpSyscall> {
+
     if sanitize_arch(arch) == None {
         return None;
     }
@@ -279,6 +307,42 @@ fn arch_from_native(a: libc::uint32_t) -> Option<ScmpArch> {
         Some(ScmpArch::ArchMIPSEL64N32)
     } else {
         None
+    }
+}
+
+pub fn new_filter(default_action: ScmpAction) -> Option<ScmpFilter> {
+    if sanitize_action(default_action) == None {
+        return None;
+    }
+
+    let f_ptr = unsafe { seccomp_init(default_action.0) };
+
+    if f_ptr == ptr::null_mut() {
+        return None;
+    }
+
+    let filter = ScmpFilter {
+        filter_ctx: f_ptr,
+        valid: true,
+    };
+
+    return Some(filter);
+}
+
+impl ScmpFilter {
+    pub fn is_valid(&self) -> bool {
+        let lock = Mutex::new(*self);
+        return self.valid;
+    }
+
+    pub fn release(&mut self) {
+        let lock = Mutex::new(*self);
+        if self.valid {
+            return;
+        }
+
+        self.valid = false;
+        unsafe { seccomp_release(self.filter_ctx) };
     }
 }
 
@@ -399,6 +463,23 @@ mod test {
     fn test_get_native_arch() {
         let arch = get_native_arch();
         assert!(arch != None);
+    }
+
+    #[test]
+    fn test_filter_create_release() {
+        // Must not create filter with invalid action
+        assert_eq!(None, new_filter(ACT_INVALID));
+
+        let filter = new_filter(ACT_KILL);
+        assert!(None != filter);
+
+        let mut f = filter.unwrap();
+        // Filter must be valid
+        assert_eq!(true, f.is_valid());
+        f.release();
+
+        // Must be invalid after release
+        assert_eq!(false, f.is_valid());
     }
 
 }
