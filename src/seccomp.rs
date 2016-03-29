@@ -1,62 +1,62 @@
-use libc;
+use libc::{c_int, uint32_t, c_void, c_char};
 use std::ffi::{CStr, CString};
 use std::ptr;
 use std::sync::Mutex;
 
 extern "C" {
-    pub static C_ARCH_BAD: libc::uint32_t;
+    pub static C_ARCH_BAD: uint32_t;
 
-    pub static C_ARCH_NATIVE: libc::uint32_t;
-    pub static C_ARCH_X86: libc::uint32_t;
-    pub static C_ARCH_X86_64: libc::uint32_t;
-    pub static C_ARCH_X32: libc::uint32_t;
-    pub static C_ARCH_ARM: libc::uint32_t;
-    pub static C_ARCH_AARCH64: libc::uint32_t;
-    pub static C_ARCH_MIPS: libc::uint32_t;
-    pub static C_ARCH_MIPS64: libc::uint32_t;
-    pub static C_ARCH_MIPS64N32: libc::uint32_t;
-    pub static C_ARCH_MIPSEL: libc::uint32_t;
-    pub static C_ARCH_MIPSEL64: libc::uint32_t;
-    pub static C_ARCH_MIPSEL64N32: libc::uint32_t;
+    pub static C_ARCH_NATIVE: uint32_t;
+    pub static C_ARCH_X86: uint32_t;
+    pub static C_ARCH_X86_64: uint32_t;
+    pub static C_ARCH_X32: uint32_t;
+    pub static C_ARCH_ARM: uint32_t;
+    pub static C_ARCH_AARCH64: uint32_t;
+    pub static C_ARCH_MIPS: uint32_t;
+    pub static C_ARCH_MIPS64: uint32_t;
+    pub static C_ARCH_MIPS64N32: uint32_t;
+    pub static C_ARCH_MIPSEL: uint32_t;
+    pub static C_ARCH_MIPSEL64: uint32_t;
+    pub static C_ARCH_MIPSEL64N32: uint32_t;
 
-    pub static C_ACT_KILL: libc::uint32_t;
-    pub static C_ACT_TRAP: libc::uint32_t;
-    pub static C_ACT_ERRNO: libc::uint32_t;
-    pub static C_ACT_TRACE: libc::uint32_t;
-    pub static C_ACT_ALLOW: libc::uint32_t;
+    pub static C_ACT_KILL: uint32_t;
+    pub static C_ACT_TRAP: uint32_t;
+    pub static C_ACT_ERRNO: uint32_t;
+    pub static C_ACT_TRACE: uint32_t;
+    pub static C_ACT_ALLOW: uint32_t;
 
-    pub static C_ATTRIBUTE_DEFAULT: libc::uint32_t;
-    pub static C_ATTRIBUTE_BADARCH: libc::uint32_t;
-    pub static C_ATTRIBUTE_NNP: libc::uint32_t;
-    pub static C_ATTRIBUTE_TSYNC: libc::uint32_t;
+    pub static C_ATTRIBUTE_DEFAULT: uint32_t;
+    pub static C_ATTRIBUTE_BADARCH: uint32_t;
+    pub static C_ATTRIBUTE_NNP: uint32_t;
+    pub static C_ATTRIBUTE_TSYNC: uint32_t;
 
-    pub static C_CMP_NE: libc::c_int;
-    pub static C_CMP_LT: libc::c_int;
-    pub static C_CMP_LE: libc::c_int;
-    pub static C_CMP_EQ: libc::c_int;
-    pub static C_CMP_GE: libc::c_int;
-    pub static C_CMP_GT: libc::c_int;
-    pub static C_CMP_MASKED_EQ: libc::c_int;
+    pub static C_CMP_NE: c_int;
+    pub static C_CMP_LT: c_int;
+    pub static C_CMP_LE: c_int;
+    pub static C_CMP_EQ: c_int;
+    pub static C_CMP_GE: c_int;
+    pub static C_CMP_GT: c_int;
+    pub static C_CMP_MASKED_EQ: c_int;
 
-    pub static C_VERSION_MAJOR: libc::c_int;
-    pub static C_VERSION_MINOR: libc::c_int;
-    pub static C_VERSION_MICRO: libc::c_int;
+    pub static C_VERSION_MAJOR: c_int;
+    pub static C_VERSION_MINOR: c_int;
+    pub static C_VERSION_MICRO: c_int;
 }
 
 
 #[link(name = "seccomp")]
 extern "C" {
-    fn seccomp_syscall_resolve_num_arch(arch: libc::uint32_t,
-                                        syscall: libc::c_int)
-                                        -> *const libc::c_char;
+    fn seccomp_syscall_resolve_num_arch(arch: uint32_t,
+                                        syscall: c_int)
+                                        -> *const c_char;
 
-    fn seccomp_syscall_resolve_name(name: *const libc::c_char) -> libc::c_int;
-    fn seccomp_syscall_resolve_name_arch(arch: libc::uint32_t,
-                                         name: *const libc::c_char)
-                                         -> libc::c_int;
-    fn seccomp_arch_native() -> libc::uint32_t;
-    fn seccomp_init(def_action: libc::uint32_t) -> *mut libc::c_void;
-    fn seccomp_release(ctx: *mut libc::c_void);
+    fn seccomp_syscall_resolve_name(name: *const c_char) -> c_int;
+    fn seccomp_syscall_resolve_name_arch(arch: uint32_t,
+                                         name: *const c_char)
+                                         -> c_int;
+    fn seccomp_arch_native() -> uint32_t;
+    fn seccomp_init(def_action: uint32_t) -> *mut c_void;
+    fn seccomp_release(ctx: *mut c_void);
 }
 
 pub enum ScmpFilterAttr {
@@ -99,7 +99,7 @@ pub struct ScmpCondition {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ScmpFilter {
-    filter_ctx: *mut libc::c_void,
+    filter_ctx: *mut c_void,
     valid: bool,
 }
 
@@ -113,7 +113,7 @@ pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
 const ACT_START: ScmpAction = ACT_KILL;
 const ACT_END: ScmpAction = ACT_ALLOW;
 
-pub const SCMP_ERROR: libc::c_int = -1;
+pub const SCMP_ERROR: c_int = -1;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ScmpArch {
@@ -145,7 +145,7 @@ impl ScmpAction {
         return (self.0 >> 16) as i16;
     }
 
-    pub fn to_native(&self) -> libc::uint32_t {
+    pub fn to_native(&self) -> uint32_t {
         match ScmpAction(self.0 & 0xFFFF) {
             ACT_KILL => C_ACT_KILL,
             ACT_TRAP => C_ACT_TRAP,
@@ -197,8 +197,8 @@ impl ScmpSyscall {
             return None;
         }
 
-        let c_str: *const libc::c_char = unsafe {
-            seccomp_syscall_resolve_num_arch(arch.to_native(), self.0 as libc::c_int)
+        let c_str: *const c_char = unsafe {
+            seccomp_syscall_resolve_num_arch(arch.to_native(), self.0 as c_int)
         };
 
         if c_str == ptr::null() {
@@ -210,7 +210,7 @@ impl ScmpSyscall {
 }
 
 impl ScmpArch {
-    pub fn to_native(self) -> libc::uint32_t {
+    pub fn to_native(self) -> uint32_t {
         match self {
             ScmpArch::ArchX86 => C_ARCH_X86,
             ScmpArch::ArchAMD64 => C_ARCH_X86_64,
@@ -231,7 +231,7 @@ impl ScmpArch {
 
 pub fn get_syscall_from_name(name: &str) -> Option<ScmpSyscall> {
     let c_str = CString::new(name).unwrap();
-    let result: libc::c_int = unsafe { seccomp_syscall_resolve_name(c_str.as_ptr()) };
+    let result: c_int = unsafe { seccomp_syscall_resolve_name(c_str.as_ptr()) };
     if result == SCMP_ERROR {
         return None;
     }
@@ -245,7 +245,7 @@ pub fn get_syscall_from_name_by_arch(name: &str, arch: ScmpArch) -> Option<ScmpS
     }
 
     let c_str = CString::new(name).unwrap();
-    let result: libc::c_int = unsafe {
+    let result: c_int = unsafe {
         seccomp_syscall_resolve_name_arch(arch.to_native(), c_str.as_ptr())
     };
     if result == SCMP_ERROR {
@@ -289,7 +289,7 @@ pub fn get_native_arch() -> Option<ScmpArch> {
     return arch_from_native(arch);
 }
 
-fn arch_from_native(a: libc::uint32_t) -> Option<ScmpArch> {
+fn arch_from_native(a: uint32_t) -> Option<ScmpArch> {
     if a == C_ARCH_X86 {
         Some(ScmpArch::ArchX86)
     } else if a == C_ARCH_X86_64 {
