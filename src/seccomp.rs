@@ -59,15 +59,6 @@ extern "C" {
     fn seccomp_release(ctx: *mut libc::c_void);
 }
 
-extern "C" {
-    fn prctl(option: libc::c_int,
-             arg2: libc::c_ulong,
-             arg3: libc::c_ulong,
-             arg4: libc::c_ulong,
-             arg5: libc::c_ulong)
-             -> libc::c_int;
-}
-
 pub enum ScmpFilterAttr {
     FilterAttrActDefault,
     FilterAttrActBadArch,
@@ -119,8 +110,8 @@ pub const ACT_ERRNO: ScmpAction = ScmpAction(3);
 pub const ACT_TRACE: ScmpAction = ScmpAction(4);
 pub const ACT_ALLOW: ScmpAction = ScmpAction(5);
 
-const ActionStart: ScmpAction = ACT_KILL;
-const ActionEnd: ScmpAction = ACT_ALLOW;
+const ACT_START: ScmpAction = ACT_KILL;
+const ACT_END: ScmpAction = ACT_ALLOW;
 
 pub const SCMP_ERROR: libc::c_int = -1;
 
@@ -184,7 +175,7 @@ fn sanitize_arch(in_arch: ScmpArch) -> Option<()> {
 fn sanitize_action(in_act: ScmpAction) -> Option<()> {
     let in_tmp = in_act.0 & 0x0000FFFF;
 
-    if in_tmp < ActionStart.0 || in_tmp > ActionEnd.0 {
+    if in_tmp < ACT_START.0 || in_tmp > ACT_END.0 {
         return None;
     }
 
@@ -350,11 +341,12 @@ pub fn new_filter(default_action: ScmpAction) -> Option<ScmpFilter> {
 impl ScmpFilter {
     pub fn is_valid(&self) -> bool {
         let lock = Mutex::new(*self);
-        return self.valid;
+        return lock.lock().unwrap().valid;
     }
 
     pub fn release(&mut self) {
         let lock = Mutex::new(*self);
+	let _ = lock.lock().unwrap();
         if self.valid == false {
             return;
         }
